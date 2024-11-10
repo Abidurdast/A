@@ -1,0 +1,52 @@
+import librosa
+import numpy as np
+import sounddevice as sd
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PC
+
+def extract_features(audio_data, sr):
+    """Extract features from audio data."""
+    mfcc = librosa.feature.mfcc(y=audio_data, sr=sr, n_mfcc=40)
+    rms = librosa.feature.rms(y=audio_data)
+    zcr = librosa.feature.zero_crossing_rate(y=audio_data)
+    return np.concatenate([mfcc, rms, zcr], axis=0)
+
+def cluster_sounds(features):
+    """Cluster extracted features."""
+    kmeans = KMeans(n_clusters=3)  # Adjust the number of clusters as needed
+    kmeans.fit(features)
+    return kmeans.labels_
+
+def classify_sound(new_features, clusters):
+    """Classify a new sound based on clusters."""
+    closest_cluster = np.argmin(np.linalg.norm(clusters - new_features, axis=1))
+    return closest_cluster
+
+# Continuous recording
+sr = 44100
+duration = 1  # Duration of each recording in seconds
+stream = sd.InputStream(samplerate=sr, channels=1, callback=callback)
+stream.start()
+
+# Initialize feature storage
+features = []
+
+def callback(indata, frames, time, status):
+    if status:
+        print(status)
+    audio_data = indata.flatten()
+    features.append(extract_features(audio_data, sr))
+
+# Cluster features after collecting a sufficient number of samples
+num_samples = 1000
+while len(features) < num_samples:
+    pass
+
+clusters = cluster_sounds(features)
+
+# Real-time classification
+while True:
+    audio_data = stream.read(frames, blocking=True)[0]
+    new_features = extract_features(audio_data, sr)
+    predicted_cluster = classify_sound(new_features, clusters)
+    print(f"Predicted cluster: {predicted_cluster}")
